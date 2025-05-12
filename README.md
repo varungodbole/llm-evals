@@ -1,6 +1,7 @@
 # A strategy for meaningful LLM evaluations
 
 **Authors:** Varun Godbole, Claude 3.7, ChatGPT o3.
+
 **Substack:** www.varungodbole.com
 
 ## Who is this document for and what is its goal?
