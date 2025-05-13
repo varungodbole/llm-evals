@@ -44,35 +44,35 @@ There’s two levels to this question:
 2. What tools, libraries, etc. should one use to construct good evaluations?
 
 As discussed above, this document entirely focuses on (1). We leave (2) for the next document in the series.
-## An iterative process for creating evals
-Our process can be broken down into specific “Generate”, “Edit” and “Reflection” sections. Typically, engaging in this full process yields more insight into the overall product goals and problem formulation itself, leading to successive iteration.
+## An iterative process for creating and using evals
+At a high level, the process will be broken into two stages:
+1. Creating the eval - engage in a series of generate/edit steps until an initial eval has been created.
+2. Hill climbing it - attempt to maximize the performance of the eval, debugging any issues along the way.
+3. Go to (1).
 
-**Generate**
+Engaging in this full process typically yields more insight into the overall product goals and problem formulation itself, leading to successive iteration.
+### Creating the eval
+#### Generating a number of actionable questions
 1. On the demand side, what are the overall “jobs to be done” or “use-cases” that we believe could be assisted using an AI? What does this user journey or flow look like?  
-2. What broader business metrics/KPIs do we already possess, or need to create to capture this flow?  
+2. What broader business metrics/KPIs do we already possess, or need to create to capture this flow?
 3. For each of these flows, what are the **actionable questions** from the section above that we’re trying to answer about the model’s performance? 
-
-**Edit**
-1. What is the stack rank of these different flows, and how would one weigh them against each other? Is there one that seems especially relevant or critical to the business?  
-   2. Much like alleviating technical debt, the act of creating evals is an investment that must be made strategically. One can’t boil the ocean, nor can they measure everything in the workings of their business.  
-3. If we had to pick one specific **actionable question** which we’d like an eval to answer, which one would it be and why?
-
-**Generate**
-1. For this actionable, what are some canonical diverse example inputs that a user might feed into the system? At this stage, we’re unconcerned with the context window or raw feature inputs. Our focus is the user.   
-   2. It can be very helpful to get creative and err on the side of diversity. Consider what are likely to be “typical” input patterns along with lots of edge cases. Imagine we’re writing tests for an API. These input examples collectively point towards the overall “contract” for our AI system.  
-   3. It’s not uncommon at this stage to gain more insight into the scope of the product surface itself.  
-4. For each of these example inputs, generate a lot of different assertions that would need to be true for the AI system to produce the “ideal” output. One can think of these assertions much in the same way that one might think about an assertion in a unit test. Specifically, an assertion here is a question one might ask of the output given some input that results in a yes/no/not applicable answer.  
-   5. might even be helpful to map out a sketch of what the “ideal” output might look like.  
-   6. It’s fine if the assertions involve constraints that weren’t specified in the inputs. This is potentially an implementation detail that can be resolved later. At this stage, our priority is to map out the input/output “contract” of the AI system.
-
-**Edit**
-1. In practice, there’s a combinatorial explosion of things that one could evaluate. It’s worth looking for patterns in the assertions generated in the previous stage, and asking these two broad questions:  
-   2. Are there any assertions that seem independent of the input, and seem contingent on the overall use-case or deployment itself?  
-   3. Are there any assertions that seem heavily dependent on the input? For example, assertions that are heavily dependent on context?  
-4. Once all the assertions have been scanned for patterns, it’s time to figure out the scope of the eval. The section below has more details.  
-5. Once an eval has been scoped, build it and ship it\!
-
-**Reflections \- What to do after the eval is complete?**  
+#### Editing the generated actionable questions
+1. What is the stack rank of these different flows, and how would one weigh them against each other? Is there one that seems especially relevant or critical to the business?
+	- Much like alleviating technical debt, the act of creating evals is an investment that must be made strategically. One can’t boil the ocean, nor can they measure everything in the workings of their business.
+2. If we had to pick one specific **actionable question** which we’d like an eval to answer, which one would it be and why?
+#### Generating example inputs and their assertions
+1. For this actionable, what are some canonical diverse example inputs that a user might feed into the system? At this stage, we’re unconcerned with the context window or raw feature inputs. Our focus is the user.
+	- It can be very helpful to get creative and err on the side of diversity. Consider what are likely to be “typical” input patterns along with lots of edge cases. Imagine we’re writing tests for an API. These input examples collectively point towards the overall “contract” for our AI system.
+	- It’s not uncommon at this stage to gain more insight into the scope of the product surface itself.
+2. For each of these example inputs, generate a lot of different assertions that would need to be true for the AI system to produce the “ideal” output. One can think of these assertions much in the same way that one might think about an assertion in a unit test. Specifically, an assertion here is a question one might ask of the output given some input that results in a yes/no/not applicable answer.
+	- It might even be helpful to map out a sketch of what the “ideal” output might look like.
+	- It’s fine if the assertions involve constraints that weren’t specified in the inputs. This is potentially an implementation detail that can be resolved later. At this stage, our priority is to map out the input/output “contract” of the AI system.
+#### Editing the example inputs and assertions
+1. In practice, there’s a combinatorial explosion of things that one could evaluate. It’s worth looking for patterns in the assertions generated in the previous stage, and asking these two broad questions:
+	- Are there any assertions that seem independent of the input, and seem contingent on the overall use-case or deployment itself?
+	- Are there any assertions that seem heavily dependent on the input? For example, assertions that are heavily dependent on context?
+2. Once all the assertions have been scanned for patterns, it’s time to figure out the scope of the eval. Once that's done, the eval can finally be constructed.
+### Hill-climbing the eval  
 Hill-climbing the eval is a no-brainer once it’s ready. That is, to change the overall ML system to proactively improve the eval results. For LLMs APIs in particular, this could involve tuning the system prompt, better management of the context window (e.g. RAG), tuning the sampling parameters, etc.
 
 Sometimes improving the eval results doesn’t improve the higher-order business metrics, and it can be due to the following reasons.
@@ -80,10 +80,12 @@ Sometimes improving the eval results doesn’t improve the higher-order business
 * The relevant business metric is too insensitive or unresponsive to changes in the product’s behavior.  
 * The causal relationship between the relevant business metric and the eval is either too unclear, time-delayed or otherwise noisy. This can also be because an eval was constructed for the “wrong” actionable question.  
 * The implementation of the eval itself can be improved. For example, perhaps it’s too noisy or merely has a bug in it.
+* One's [overfitted](https://en.wikipedia.org/wiki/Overfitting) to the eval itself, at the cost of making generalizable improvements.
+	* An eval will never be perfect at capturing the causal relationship between changes in a system's behavior and improvements in the top-level metric. It's possible to fit too closely to the idiosyncratic patterns within the eval itself, at the cost tracking the broader generalized pattern that the eval is pointing towards.
+	* The most trivial ways that people get this wrong is by leaking the test set into model development in various ways. For example, including examples from the test set as few-shots into the system prompt of the system under evaluation.
 
 Once the issues above are fixed, hill-climbing can resume. When the eval saturates, it's time to create a new eval!
 ## Determining the scope of the eval
-
 For the first eval, it can be impractical to attempt to implement all the assertions generated in the process above. The following dimensions of scope affect an eval’s complexity:
 * Whether every eval example will be run against the same set of assertions.  
 * How many assertions will be run on each eval example.  
@@ -94,7 +96,6 @@ Running the same set of assertions on every eval example is simpler to implement
 It’s better to err on the side of simplicity for the first eval. Often, one can collapse a number of “specific” assertions into a more “general” but fuzzier assertion. Over time, these can gradually be “unfolded” back into more specific assertions as needs for signal-to-noise evolve.
 
 At a high-level, there’s a few different mechanisms for implementing each assertion:
-
 1. **Deterministic checking** \- If the output is structured in some way (e.g. JSON dictionary or discrete classification task), you can simply deterministically check the actual value against some expected value.  
 2. **Fuzzy checking** \- Unlike deterministic checking, it will have false positives and false negatives and checks the response heuristically. There's a vast array of strategies for implementing something like this. They range from using bags of regular expressions to using embeddings with cosine similarity against some golden response.  
 3. **Human raters** \- A human examines each response against some assertion, and decides if the assertion is true or not.   
@@ -112,7 +113,7 @@ Prioritizing the scope of an eval is extremely contextual, and it’s extremely 
 We’ll attempt to concretize the overall process described in this document by considering an LLM-powered customer service chatbot called ChattyMcChatFace for a large Internet Service Provider (ISP) named FakeISP. The next document in the series shall actually implement the eval using [promptfoo](https://www.promptfoo.dev/).
 
 LLMs have the capacity to act as a cognitive prosthetic for the mind. They can be extremely effective at augmenting our creativity, especially for the “generate” stages of the process described above.
-### Prompt Template {#prompt-template}
+### Prompt Template
 Let’s consider the following prompt template.
 
 ```
@@ -282,4 +283,6 @@ Future work will explore the following ideas:
 * A bunch of instructional videos on using LLMs to iteratively explore and brainstorm ideas. For example, there's ways you can do this both by iterating on the prompt itself as well as via iterative multi-turn conversations. There's also a number of tricks you can use to condition the model to make it more "creative".
 
 If there’s anything in particular that you’d like to see more resources for, please open a ticket in the Issue Tracker. Please also subscribe to my substack at [www.varungodbole.com](http://www.varungodbole.com), where I often write about LLMs.
-
+## Acknowledgements
+* Oscar Chang, Rif A Saurous and Ryan Barton for helpful comments and feedback about the draft.
+* Andrew Blevins, Dan Hunt, Ben Rubin, Ashwath Rajan, Ryan Barton, Aedan Pope for helpful encouragement in motivating me to write this.
